@@ -1,4 +1,20 @@
+import enum
 import struct
+
+
+class Cls(enum.IntEnum):
+    """Command class."""
+
+    INTERNAL = 0
+    ASYNC = 1
+    SYNC = 2
+
+
+class Resend(enum.IntEnum):
+    NORMAL = 0
+    VERIFY = 1  # Used to verify Seq1 (send) and Seq2 (recved).
+    RESEND = 2  # Resend request.
+    CALLBACK = 3  # Resend response.
 
 
 def subchecksum(buf):
@@ -22,3 +38,19 @@ def udp_checksum(buf):
     a = 0xFF - ((subsum & 0xFF) + (subsum >> 8)) % 0xFF
     b = (((0xFF - (a + (subsum >> 8))) % 0xFF) & 0xFF) | (a << 8)
     return b & 0xFFFF
+
+
+def read_storm_packet(buf):
+    checksum, length, sent, recved, cls, cmd, player, resend = struct.unpack(
+        "<HHHHbbbb", buf[:12]
+    )
+    if checksum != udp_checksum(buf[2:]):
+        raise ValueError(
+            "Checksum mismatch: Found %02x but expected %0sx"
+            % (checksum, udp_checksum(buf[2:]))
+        )
+    if cls != Cls.INTERNAL and cmd != 0:
+        raise ValueError(
+            "Found cmd of %i but should be 0 for cls %s" % (cmd, Cls.value(cls))
+        )
+    return sent, recved, cls, cmd, player, resend

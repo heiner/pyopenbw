@@ -71,3 +71,22 @@ class TestStorm:
             ValueError, match=r"length %i doesn't match .* %i" % (len(data), 40)
         ):
             storm.udp_checksum(data)
+
+    def test_read_storm_packet(self):
+        sent = [1, 2, 3, 1, 1]
+        recved = 5
+        cls = storm.Cls.ASYNC
+        cmd = 0
+        player = 1
+        resend = storm.Resend.NORMAL
+
+        for header in HEADERS:
+            packet = hexstr2bytes(header) + PAYLOAD
+            fields = storm.read_storm_packet(packet)
+
+            assert fields[0] == sent.pop(0)
+            assert fields[1] == recved
+            assert fields[2] == cls
+            assert fields[3] == cmd
+            assert fields[4] == player
+            assert fields[5] == resend
