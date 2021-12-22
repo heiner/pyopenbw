@@ -1,5 +1,8 @@
 [flake8]
 ignore =
     E501,  # Line too long.
-    B950   # Line too long.
+    B950,  # Line too long.
+    W503,  # Line break before binary operator.
+extend-ignore =
+    E203   # Whitespace before ':'.
 select = B,C,E,F,W,T4,B9

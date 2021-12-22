@@ -38,6 +38,33 @@ MORE_PACKETS = (
     """,
 )
 
+EVEN_MORE_PACKETS = (
+    # "[Joiner sends 3 query packets] UDPPKT_JOINQUERY(0x01) S -> C"
+    "28 C4 10 00 00 00 01 00 00 01 FF 00 01 00 00 00",
+    # "[Host responds back] UDPPKT_HOSTQUERYRESPONSE(0x02) C -> S"
+    "33 B7 10 00 01 00 01 00 00 02 00 00 01 00 00 00",
+    # "[?]UDPPKT_Unknown(0x03) S -> C"
+    "40 A8 10 00 01 00 02 00 00 03 FF 00 01 00 00 00",
+    # "[Joiner is in the GameRoom and you gets its name and stats]
+    #  UDPPKT_JOINERSINFO(0x07) S -> C"
+    """1F 81 30 00 02 00 02 00 00 07 FF 00
+    62 61 62 79 62 61 63 00 50 58 45 53 20 30 20 30
+    20 32 36 20 30 20 30 20 30 20 30 20 30 20 50 58
+    45 53 00 00""",
+)
+
+# "[Intial Creation of Game]"
+CREATION = bytearray.fromhex(
+    """
+    FF 1C 52 00 00 00 00 00 00 00 00 00 02 00 01 00
+    FF 00 00 00 00 00 00 00 34 76 34 20 48 75 6E 74
+    65 72 73 00 00 2C 34 34 2C 2C 36 2C 31 2C 32 2C
+    2C 31 2C 33 34 65 61 62 30 32 66 2C 34 2C 2C 74
+    68 69 65 66 0D 54 68 65 20 48 75 6E 74 65 72 73
+    0D 00
+"""
+)
+
 
 class TestStorm:
     def test_subchecksum(self):
@@ -54,6 +81,12 @@ class TestStorm:
         for packet in MORE_PACKETS:
             data = bytearray.fromhex(packet)
             data = data[4:]  # Strip 4 bytes of zeros.
+            checksum = storm.udp_checksum(data[2:])
+            assert struct.pack("<H", checksum) == data[:2]
+
+    def test_udp_checksum_more_yet(self):
+        for packet in EVEN_MORE_PACKETS:
+            data = bytearray.fromhex(packet)
             checksum = storm.udp_checksum(data[2:])
             assert struct.pack("<H", checksum) == data[:2]
 
@@ -86,6 +119,19 @@ class TestStorm:
             assert fields[4] == player
             assert fields[5] == resend
             assert fields[6] == payload
+
+    def test_read_unclear_pkt(self, packet=CREATION):
+        with pytest.raises(ValueError, match=r"Found 0x1cff but expected 0x06b8"):
+            # Package unclear -- checksum is different?
+            storm.read_storm_packet(packet)
+        data = storm.read_storm_packet(packet, verify=False)
+        print(data)
+        for i in range(6):
+            assert data[i] == 0
+        assert (
+            data[6]
+            == b"\x02\x00\x01\x00\xff\x00\x00\x00\x00\x00\x00\x004v4 Hunters\x00\x00,44,,6,1,2,,1,34eab02f,4,,thief\rThe Hunters\r\x00"
+        )
 
     def test_write_storm_packet(self):
         sent = [1, 2, 3, 1, 1]
