@@ -13,7 +13,11 @@ def subchecksum(buf):
 
 def udp_checksum(buf):
     length, *_ = struct.unpack("<H", buf[:2])
-    assert length - 2 == len(buf)
+    if length - 2 != len(buf):
+        raise ValueError(
+            "Buffer of length %i doesn't match its adjusted length entry of %i"
+            % (len(buf), length - 2)
+        )
     subsum = subchecksum(buf)
     a = 0xFF - ((subsum & 0xFF) + (subsum >> 8)) % 0xFF
     b = (((0xFF - (a + (subsum >> 8))) % 0xFF) & 0xFF) | (a << 8)

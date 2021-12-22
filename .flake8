@@ -1,3 +1,5 @@
 [flake8]
-ignore = E501
+ignore =
+    E501,  # Line too long.
+    B950   # Line too long.
 select = B,C,E,F,W,T4,B9
