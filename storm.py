@@ -24,15 +24,14 @@ def subchecksum(buf):
     sum1, sum2 = 0, 0
     for ch in reversed(buf):
         sum2 += ch
-        if sum2 > 0xFF:
-            sum2 -= 0xFF
+        sum2 %= 0xFF
         sum1 += sum2
     return ((sum2 & 0xFF) << 8) | ((sum1 % 0xFF) & 0xFF)
 
 
-def udp_checksum(buf):
+def udp_checksum(buf, verify=True):
     length, *_ = struct.unpack("<H", buf[:2])
-    if length - 2 != len(buf):
+    if verify and length - 2 != len(buf):
         raise ValueError(
             "Buffer of length %i doesn't match its adjusted length entry of %i"
             % (len(buf), length - 2)
@@ -47,23 +46,21 @@ def read_storm_packet(buf, verify=True):
     checksum, length, sent, recved, cls, cmd, player, resend = struct.unpack(
         "<HHHHbbbb", buf[:12]
     )
-    if verify and checksum != udp_checksum(buf[2:]):
-        raise ValueError(
-            "Checksum mismatch: Found 0x%04x but expected 0x%04x"
-            % (checksum, udp_checksum(buf[2:]))
-        )
-    if verify and cls != Cls.INTERNAL and cmd != 0:
-        raise ValueError(
-            "Found cmd of %i but should be 0 for cls %s" % (cmd, Cls.value(cls))
-        )
+    if verify:
+        cls = Cls(cls)
+        if checksum != udp_checksum(buf[2:], verify):
+            raise ValueError(
+                "Checksum mismatch: Found 0x%04x but expected 0x%04x"
+                % (checksum, udp_checksum(buf[2:]))
+            )
+        if cls != Cls.INTERNAL and cmd != 0:
+            raise ValueError("Found cmd of %i but should be 0 for cls %r" % (cmd, cls))
     return sent, recved, cls, cmd, player, resend, buf[12:]
 
 
 def write_storm_packet(sent, recved, cls, cmd, player, resend, payload):
     if cls != Cls.INTERNAL and cmd != 0:
-        raise ValueError(
-            "Found cmd of %i but should be 0 for cls %s" % (cmd, Cls.value(cls))
-        )
+        raise ValueError("Found cmd of %i but should be 0 for cls %s" % (cmd, cls))
 
     packet = bytearray(12 + len(payload))
     struct.pack_into(
