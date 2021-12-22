@@ -1,5 +1,6 @@
 import enum
 import struct
+import warnings
 
 
 class Cls(enum.IntEnum):
@@ -30,29 +31,36 @@ def subchecksum(buf):
 
 
 def udp_checksum(buf, verify=True):
-    length, *_ = struct.unpack("<H", buf[:2])
-    if verify and length - 2 != len(buf):
-        raise ValueError(
-            "Buffer of length %i doesn't match its adjusted length entry of %i"
-            % (len(buf), length - 2)
+    length, *_ = struct.unpack("<H", buf[2:4])
+    if length != len(buf):
+        warnings.warn(
+            "Buffer of length %i doesn't match its length entry %i" % (len(buf), length)
         )
-    subsum = subchecksum(buf)
+    subsum = subchecksum(buf[2:length])
     a = 0xFF - ((subsum & 0xFF) + (subsum >> 8)) % 0xFF
     b = (((0xFF - (a + (subsum >> 8))) % 0xFF) & 0xFF) | (a << 8)
-    return b & 0xFFFF
+    checksum = b & 0xFFFF
+    if verify:
+        value, *_ = struct.unpack("<H", buf[:2])
+        if value != checksum:
+            raise ValueError(
+                "Checksum mismatch: Found 0x%04x but expected 0x%04x"
+                % (value, checksum)
+            )
+    return checksum
 
 
 def read_storm_packet(buf, verify=True):
     checksum, length, sent, recved, cls, cmd, player, resend = struct.unpack(
         "<HHHHbbbb", buf[:12]
     )
+    buf = buf[:length]
     if verify:
-        cls = Cls(cls)
-        if checksum != udp_checksum(buf[2:], verify):
-            raise ValueError(
-                "Checksum mismatch: Found 0x%04x but expected 0x%04x"
-                % (checksum, udp_checksum(buf[2:]))
-            )
+        udp_checksum(buf)
+        try:
+            cls = Cls(cls)
+        except ValueError:
+            pass
         if cls != Cls.INTERNAL and cmd != 0:
             raise ValueError("Found cmd of %i but should be 0 for cls %r" % (cmd, cls))
     return sent, recved, cls, cmd, player, resend, buf[12:]
@@ -77,5 +85,5 @@ def write_storm_packet(sent, recved, cls, cmd, player, resend, payload):
         resend,
     )
     packet[12:] = payload
-    struct.pack_into("<H", packet, 0, udp_checksum(packet[2:]))
+    struct.pack_into("<H", packet, 0, udp_checksum(packet, verify=False))
     return packet

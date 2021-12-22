@@ -73,7 +73,7 @@ class TestStorm:
     def test_udp_checksum(self):
         for header, payload in PACKETS:
             data = bytearray.fromhex(header) + payload
-            checksum = storm.udp_checksum(data[2:])
+            checksum = storm.udp_checksum(data)
             assert checksum == struct.unpack("<H", data[:2])[0]
             assert struct.pack("<H", checksum) == data[:2]
 
@@ -81,24 +81,25 @@ class TestStorm:
         for packet in MORE_PACKETS:
             data = bytearray.fromhex(packet)
             data = data[4:]  # Strip 4 bytes of zeros.
-            checksum = storm.udp_checksum(data[2:])
+            checksum = storm.udp_checksum(data)
             assert struct.pack("<H", checksum) == data[:2]
 
     def test_udp_checksum_more_yet(self):
         for packet in EVEN_MORE_PACKETS:
             data = bytearray.fromhex(packet)
-            checksum = storm.udp_checksum(data[2:])
+            checksum = storm.udp_checksum(data)
             assert struct.pack("<H", checksum) == data[:2]
 
     def test_wrong_length(self):
         (header, _), *_ = PACKETS
-        data = bytearray.fromhex(header)[2:]
+        data = bytearray.fromhex(header)
         wrong_length = 42
-        struct.pack_into("<H", data, 0, wrong_length)
-        with pytest.raises(
-            ValueError, match=r"length %i doesn't match .* %i" % (len(data), 40)
+        struct.pack_into("<H", data, 2, wrong_length)
+        with pytest.warns(
+            UserWarning,
+            match=r"length %i doesn't match .* %i" % (len(data), wrong_length),
         ):
-            storm.udp_checksum(data)
+            storm.udp_checksum(data, verify=False)
 
     def test_read_storm_packet(self):
         sent = [1, 2, 3, 1, 1]
@@ -125,7 +126,6 @@ class TestStorm:
             # Package unclear -- checksum is different?
             storm.read_storm_packet(packet)
         data = storm.read_storm_packet(packet, verify=False)
-        print(data)
         for i in range(6):
             assert data[i] == 0
         assert (
