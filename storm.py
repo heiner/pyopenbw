@@ -57,3 +57,28 @@ def read_storm_packet(buf, verify=True):
             "Found cmd of %i but should be 0 for cls %s" % (cmd, Cls.value(cls))
         )
     return sent, recved, cls, cmd, player, resend, buf[12:]
+
+
+def write_storm_packet(sent, recved, cls, cmd, player, resend, payload):
+    if cls != Cls.INTERNAL and cmd != 0:
+        raise ValueError(
+            "Found cmd of %i but should be 0 for cls %s" % (cmd, Cls.value(cls))
+        )
+
+    packet = bytearray(12 + len(payload))
+    struct.pack_into(
+        "<HHHHbbbb",
+        packet,
+        0,  # Offset.
+        0,  # Null checksum.
+        len(packet),
+        sent,
+        recved,
+        cls,
+        cmd,
+        player,
+        resend,
+    )
+    packet[12:] = payload
+    struct.pack_into("<H", packet, 0, udp_checksum(packet[2:]))
+    return packet

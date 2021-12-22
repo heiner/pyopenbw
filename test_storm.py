@@ -91,3 +91,18 @@ class TestStorm:
             assert fields[4] == player
             assert fields[5] == resend
             assert fields[6] == payload
+
+    def test_write_storm_packet(self):
+        sent = [1, 2, 3, 1, 1]
+        recved = 5
+        cls = storm.Cls.ASYNC
+        cmd = 0
+        player = 1
+        resend = storm.Resend.NORMAL
+
+        for header, payload in PACKETS:
+            packet_expected = hexstr2bytes(header) + payload
+            packet_written = storm.write_storm_packet(
+                sent.pop(0), recved, cls, cmd, player, resend, payload
+            )
+            assert packet_expected == packet_written
