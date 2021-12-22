@@ -1,3 +1,4 @@
+import dataclasses
 import enum
 import struct
 import warnings
@@ -87,3 +88,21 @@ def write_storm_packet(sent, recved, cls, cmd, player, resend, payload):
     packet[12:] = payload
     struct.pack_into("<H", packet, 0, udp_checksum(packet, verify=False))
     return packet
+
+
+@dataclasses.dataclass
+class StormPacket:
+    sent: int
+    recved: int
+    cls: Cls
+    cmd: int
+    player: int
+    resend: Resend
+    payload: bytes
+
+    def write(self):
+        return write_storm_packet(**dataclasses.asdict(self))
+
+    @classmethod
+    def from_buffer(cls, buf):
+        return StormPacket(*read_storm_packet(buf))

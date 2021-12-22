@@ -147,3 +147,9 @@ class TestStorm:
                 sent.pop(0), recved, cls, cmd, player, resend, payload
             )
             assert packet_expected == packet_written
+
+    def test_storm_packet(self):
+        for header, payload in PACKETS:
+            packet = bytearray.fromhex(header) + payload
+            strmpkt = storm.StormPacket.from_buffer(packet)
+            assert packet == strmpkt.write()
