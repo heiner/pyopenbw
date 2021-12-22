@@ -11,14 +11,14 @@ def hexstr2bytes(s):
 
 # From
 #   https://guidedhacking.com/threads/beginner-packet-hacking-%E2%80%93-starcraft-cheats.13626/
-HEADERS = (
-    "e7 36 1e 00 01 00 05 00 01 00 01 00 00 93",
-    "ea 32 1e 00 02 00 05 00 01 00 01 00 00 93",
-    "ed 2e 1e 00 03 00 05 00 01 00 01 00 00 93",
-    "d5 c9 1e 00 01 00 05 00 01 00 01 00 00 12",
-    "c6 1a 1e 00 01 00 05 00 01 00 01 00 00 d0",
+PACKETS = (
+    ("e7 36 1e 00 01 00 05 00 01 00 01 00", b"\x00\x93This is a test.\x00"),
+    ("ea 32 1e 00 02 00 05 00 01 00 01 00", b"\x00\x93This is a test.\x00"),
+    ("ed 2e 1e 00 03 00 05 00 01 00 01 00", b"\x00\x93This is a test.\x00"),
+    ("d5 c9 1e 00 01 00 05 00 01 00 01 00", b"\x00\x12This is a test.\x00"),
+    ("c6 1a 1e 00 01 00 05 00 01 00 01 00", b"\x00\xd0This is a test.\x00"),
 )
-PAYLOAD = b"This is a test.\x00"
+
 
 # From
 #   https://www.darkblizz.org/Forum2/index.php?pretty;board=starcraft;topic=sc-udp-game-research.msg96#msg96
@@ -49,8 +49,8 @@ class TestStorm:
         assert storm.subchecksum(b"bbccdd") == 21551
 
     def test_udp_checksum(self):
-        for header in HEADERS:
-            data = hexstr2bytes(header) + PAYLOAD
+        for header, payload in PACKETS:
+            data = hexstr2bytes(header) + payload
             checksum = storm.udp_checksum(data[2:])
             assert checksum == struct.unpack("<H", data[:2])[0]
             assert struct.pack("<H", checksum) == data[:2]
@@ -63,7 +63,7 @@ class TestStorm:
             assert struct.pack("<H", checksum) == data[:2]
 
     def test_wrong_length(self):
-        header, *_ = HEADERS
+        (header, _), *_ = PACKETS
         data = hexstr2bytes(header)
         wrong_length = 42
         data = struct.pack("<H", wrong_length) + data[4:]
@@ -80,8 +80,8 @@ class TestStorm:
         player = 1
         resend = storm.Resend.NORMAL
 
-        for header in HEADERS:
-            packet = hexstr2bytes(header) + PAYLOAD
+        for header, payload in PACKETS:
+            packet = hexstr2bytes(header) + payload
             fields = storm.read_storm_packet(packet)
 
             assert fields[0] == sent.pop(0)
@@ -90,3 +90,4 @@ class TestStorm:
             assert fields[3] == cmd
             assert fields[4] == player
             assert fields[5] == resend
+            assert fields[6] == payload

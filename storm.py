@@ -17,6 +17,9 @@ class Resend(enum.IntEnum):
     CALLBACK = 3  # Resend response.
 
 
+EVERYONE = 0xFF  # Player id for "all".
+
+
 def subchecksum(buf):
     sum1, sum2 = 0, 0
     for ch in reversed(buf):
@@ -40,17 +43,17 @@ def udp_checksum(buf):
     return b & 0xFFFF
 
 
-def read_storm_packet(buf):
+def read_storm_packet(buf, verify=True):
     checksum, length, sent, recved, cls, cmd, player, resend = struct.unpack(
         "<HHHHbbbb", buf[:12]
     )
-    if checksum != udp_checksum(buf[2:]):
+    if verify and checksum != udp_checksum(buf[2:]):
         raise ValueError(
-            "Checksum mismatch: Found %02x but expected %0sx"
+            "Checksum mismatch: Found 0x%04x but expected 0x%04x"
             % (checksum, udp_checksum(buf[2:]))
         )
-    if cls != Cls.INTERNAL and cmd != 0:
+    if verify and cls != Cls.INTERNAL and cmd != 0:
         raise ValueError(
             "Found cmd of %i but should be 0 for cls %s" % (cmd, Cls.value(cls))
         )
-    return sent, recved, cls, cmd, player, resend
+    return sent, recved, cls, cmd, player, resend, buf[12:]
