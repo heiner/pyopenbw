@@ -4,11 +4,6 @@ import pytest
 
 import storm
 
-
-def hexstr2bytes(s):
-    return bytes(int(h, 16) for h in s.split())
-
-
 # From
 #   https://guidedhacking.com/threads/beginner-packet-hacking-%E2%80%93-starcraft-cheats.13626/
 PACKETS = (
@@ -50,23 +45,23 @@ class TestStorm:
 
     def test_udp_checksum(self):
         for header, payload in PACKETS:
-            data = hexstr2bytes(header) + payload
+            data = bytearray.fromhex(header) + payload
             checksum = storm.udp_checksum(data[2:])
             assert checksum == struct.unpack("<H", data[:2])[0]
             assert struct.pack("<H", checksum) == data[:2]
 
     def test_udp_checksum_more(self):
         for packet in MORE_PACKETS:
-            data = hexstr2bytes(packet)
+            data = bytearray.fromhex(packet)
             data = data[4:]  # Strip 4 bytes of zeros.
             checksum = storm.udp_checksum(data[2:])
             assert struct.pack("<H", checksum) == data[:2]
 
     def test_wrong_length(self):
         (header, _), *_ = PACKETS
-        data = hexstr2bytes(header)
+        data = bytearray.fromhex(header)[2:]
         wrong_length = 42
-        data = struct.pack("<H", wrong_length) + data[4:]
+        struct.pack_into("<H", data, 0, wrong_length)
         with pytest.raises(
             ValueError, match=r"length %i doesn't match .* %i" % (len(data), 40)
         ):
@@ -81,7 +76,7 @@ class TestStorm:
         resend = storm.Resend.NORMAL
 
         for header, payload in PACKETS:
-            packet = hexstr2bytes(header) + payload
+            packet = bytearray.fromhex(header) + payload
             fields = storm.read_storm_packet(packet)
 
             assert fields[0] == sent.pop(0)
@@ -101,7 +96,7 @@ class TestStorm:
         resend = storm.Resend.NORMAL
 
         for header, payload in PACKETS:
-            packet_expected = hexstr2bytes(header) + payload
+            packet_expected = bytearray.fromhex(header) + payload
             packet_written = storm.write_storm_packet(
                 sent.pop(0), recved, cls, cmd, player, resend, payload
             )
