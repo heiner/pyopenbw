@@ -21,6 +21,8 @@ class Resend(enum.IntEnum):
 
 EVERYONE = 0xFF  # Player id for "all".
 
+STORM_HEADER = struct.Struct("<HHHHbbbb")
+
 
 def subchecksum(buf):
     sum1, sum2 = 0, 0
@@ -33,9 +35,9 @@ def subchecksum(buf):
 
 def udp_checksum(buf, verify=True):
     length, *_ = struct.unpack("<H", buf[2:4])
-    if length != len(buf):
+    if length > len(buf):
         warnings.warn(
-            "Buffer of length %i doesn't match its length entry %i" % (len(buf), length)
+            "Buffer of length %i smaller than its length entry %i" % (len(buf), length)
         )
     subsum = subchecksum(buf[2:length])
     a = 0xFF - ((subsum & 0xFF) + (subsum >> 8)) % 0xFF
@@ -52,8 +54,8 @@ def udp_checksum(buf, verify=True):
 
 
 def read_storm_packet(buf, verify=True):
-    checksum, length, sent, recved, cls, cmd, player, resend = struct.unpack(
-        "<HHHHbbbb", buf[:12]
+    checksum, length, sent, recved, cls, cmd, player, resend = STORM_HEADER.unpack_from(
+        buf, offset=0
     )
     buf = buf[:length]
     if verify:
@@ -64,16 +66,15 @@ def read_storm_packet(buf, verify=True):
             pass
         if cls != Cls.INTERNAL and cmd != 0:
             raise ValueError("Found cmd of %i but should be 0 for cls %r" % (cmd, cls))
-    return sent, recved, cls, cmd, player, resend, buf[12:]
+    return sent, recved, cls, cmd, player, resend, buf[STORM_HEADER.size :]
 
 
 def write_storm_packet(sent, recved, cls, cmd, player, resend, payload):
     if cls != Cls.INTERNAL and cmd != 0:
         raise ValueError("Found cmd of %i but should be 0 for cls %s" % (cmd, cls))
 
-    packet = bytearray(12 + len(payload))
-    struct.pack_into(
-        "<HHHHbbbb",
+    packet = bytearray(STORM_HEADER.size + len(payload))
+    STORM_HEADER.pack_into(
         packet,
         0,  # Offset.
         0,  # Null checksum.
@@ -85,7 +86,7 @@ def write_storm_packet(sent, recved, cls, cmd, player, resend, payload):
         player,
         resend,
     )
-    packet[12:] = payload
+    packet[STORM_HEADER.size :] = payload
     struct.pack_into("<H", packet, 0, udp_checksum(packet, verify=False))
     return packet
 
@@ -103,6 +104,9 @@ class StormPacket:
     def write(self):
         return write_storm_packet(**dataclasses.asdict(self))
 
+    def __len__(self):
+        return STORM_HEADER.size + len(self.payload)
+
     @classmethod
-    def from_buffer(cls, buf):
-        return StormPacket(*read_storm_packet(buf))
+    def from_buffer(cls, buf, verify=True):
+        return StormPacket(*read_storm_packet(buf, verify))
