@@ -44,26 +44,22 @@ def read_value(stream, wire_type):
         return read_varint(stream)
     if wire_type == WireType.FIXED64:
         c = stream.read(FIXED64_SIZE)
-        if not c:
-            return None
-        if len(c) != FIXED64_SIZE:
+        if not c or len(c) != FIXED64_SIZE:
             raise ValueError("Illegal length")
         return c
     if wire_type == WireType.LENGTH_DELIMITED:
         length = read_varint(stream)
         if length is None:
-            return None
+            raise ValueError("Illegal input")
         c = stream.read(length)
         if len(c) != length:
             raise ValueError("Illegal input")
         return c
     if wire_type in (WireType.START_GROUP, WireType.END_GROUP):
-        return wire_type == WireType.START_GROUP
+        return bytes(wire_type == WireType.START_GROUP)
     if wire_type == WireType.FIXED32:
         c = stream.read(FIXED32_SIZE)
-        if not c:
-            return None
-        if len(c) != FIXED32_SIZE:
+        if not c or len(c) != FIXED32_SIZE:
             raise ValueError("Illegal length")
         return c
     raise ValueError("Unknown wire type %i" % wire_type)
@@ -80,8 +76,6 @@ def read_proto(stream):
         field_number = tag >> 3
         value = read_value(stream, wire_type)
         yield field_number, wire_type, value
-        if value is None:
-            break
 
 
 def parse_proto(stream):
