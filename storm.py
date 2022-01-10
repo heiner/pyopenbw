@@ -25,6 +25,7 @@ STORM_HEADER = struct.Struct("<HHHHbbbb")
 
 
 def subchecksum(buf):
+    """A version of Fletcher's checksum."""
     sum1, sum2 = 0, 0
     for ch in reversed(buf):
         sum2 += ch
@@ -35,7 +36,7 @@ def subchecksum(buf):
 
 def udp_checksum(buf, verify=True):
     length, *_ = struct.unpack("<H", buf[2:4])
-    if length > len(buf):
+    if length > len(buf) and not verify:
         warnings.warn(
             "Buffer of length %i smaller than its length entry %i" % (len(buf), length)
         )
@@ -57,6 +58,8 @@ def read_storm_packet(buf, verify=True):
     checksum, length, sent, recved, cls, cmd, player, resend = STORM_HEADER.unpack_from(
         buf, offset=0
     )
+    if length < 12:
+        raise ValueError("Illegal packet size %i" % length)
     buf = buf[:length]
     if verify:
         udp_checksum(buf)

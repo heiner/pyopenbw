@@ -93,13 +93,18 @@ class TestStorm:
     def test_wrong_length(self):
         (header, _), *_ = PACKETS
         data = bytearray.fromhex(header)
-        wrong_length = len(data) + 5
+
+        wrong_length = len(data) + 5  # Longer than buffer.
         struct.pack_into("<H", data, 2, wrong_length)
         with pytest.warns(
             UserWarning,
             match=r"length %i smaller than .* %i" % (len(data), wrong_length),
         ):
             storm.udp_checksum(data, verify=False)
+
+        struct.pack_into("<H", data, 2, 11)  # Shorter than header itself.
+        with pytest.raises(ValueError, match="Illegal packet size"):
+            storm.read_storm_packet(data)
 
     def test_read_storm_packet(self):
         sent = [1, 2, 3, 1, 1]
