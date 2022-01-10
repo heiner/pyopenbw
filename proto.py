@@ -23,13 +23,11 @@ def read_varint(stream):
     pos = 0
     while True:
         b = stream.read(1)
-        try:
-            b = ord(b)
-        except TypeError:
-            if not pos:
+        if not b:
+            if pos == 0:
                 return
-            raise
-
+            raise ValueError("Illegal length")
+        b = b[0]
         if b == 0 and pos != 0:
             raise ValueError("Illegal input")
 
