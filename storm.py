@@ -42,7 +42,7 @@ def udp_checksum(buf, verify=True):
         )
     subsum = subchecksum(buf[2:length])
     a = 0xFF - ((subsum & 0xFF) + (subsum >> 8)) % 0xFF
-    b = (((0xFF - (a + (subsum >> 8))) % 0xFF) & 0xFF) | (a << 8)
+    b = ((0xFF - (a + (subsum >> 8)) % 0xFF) & 0xFF) | (a << 8)
     checksum = b & 0xFFFF
     if verify:
         value, *_ = struct.unpack("<H", buf[:2])
