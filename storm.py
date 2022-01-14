@@ -55,6 +55,8 @@ def udp_checksum(buf, verify=True):
 
 
 def read_storm_packet(buf, verify=True):
+    if buf[:4] == b"\x00\x00\x00\x00":
+        buf = buf[4:]
     checksum, length, sent, recved, cls, cmd, player, resend = STORM_HEADER.unpack_from(
         buf, offset=0
     )
