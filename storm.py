@@ -112,6 +112,20 @@ class StormPacket:
     def __len__(self):
         return STORM_HEADER.size + len(self.payload)
 
+    def __repr__(self):
+        return (
+            "StormPacket(sent=%i, recved=%i, cls=%r, cmd=%i, player=%i, "
+            "resend=%i, payload=%r"
+        ) % (
+            self.sent,
+            self.recved,
+            self.cls,
+            self.cmd,
+            self.player,
+            self.resend,
+            self.payload.hex(" "),
+        )
+
     @classmethod
     def from_buffer(cls, buf, verify=True):
-        return StormPacket(*read_storm_packet(buf, verify))
+        return cls(*read_storm_packet(buf, verify))
